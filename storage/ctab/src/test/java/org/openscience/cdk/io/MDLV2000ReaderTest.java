@@ -24,6 +24,7 @@
  *  */
 package org.openscience.cdk.io;
 
+import jdk.internal.util.xml.impl.Input;
 import org.hamcrest.CoreMatchers;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -1835,6 +1836,7 @@ public class MDLV2000ReaderTest extends SimpleChemObjectReaderTest {
         }
     }
 
+
     @Test public void atomList() throws Exception {
         try (InputStream in = getClass().getResourceAsStream("query_atomlist.mol");
              MDLV2000Reader mdlr = new MDLV2000Reader(in)) {
@@ -1876,5 +1878,36 @@ public class MDLV2000ReaderTest extends SimpleChemObjectReaderTest {
             mdlw.write(mol);
         }
         assertThat(sw.toString(), containsString("M  SAL   1  2   2   3"));
+    }
+
+    @Test
+    public void dataSgroup() {
+        String path = "/data/mdl/hbr_acoh_mix.mol";
+        try (InputStream in = getClass().getResourceAsStream(path)) {
+            MDLV2000Reader     mdlr     = new MDLV2000Reader(in);
+            IChemObjectBuilder builder = SilentChemObjectBuilder.getInstance();
+            IAtomContainer mol = mdlr.read(builder.newAtomContainer());
+            List<Sgroup> sgroups = mol.getProperty(CDKConstants.CTAB_SGROUPS);
+            Sgroup dataSgroup = null;
+            for (Sgroup sgroup : sgroups) {
+                if (sgroup.getType() == SgroupType.CtabData) {
+                    dataSgroup = sgroup;
+                    break;
+                }
+            }
+            assertNotNull(dataSgroup);
+            assertThat(dataSgroup.<String>getValue(SgroupKey.DataFieldName),
+                       CoreMatchers.is("WEIGHT_PERCENT"));
+            // note it looks like MDL/Accelys/BIOVIA simply omit units/format
+            // but check we pass it okay
+            assertThat(dataSgroup.<String>getValue(SgroupKey.DataFieldUnits),
+                       CoreMatchers.is("%"));
+            assertThat(dataSgroup.<String>getValue(SgroupKey.DataFieldFormat),
+                       CoreMatchers.is("N"));
+            assertThat(dataSgroup.<String>getValue(SgroupKey.Data),
+                       CoreMatchers.is("33%"));
+        } catch (IOException | CDKException e) {
+            e.printStackTrace();
+        }
     }
 }
